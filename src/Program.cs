@@ -28,5 +28,12 @@ static bool MatchPattern(string inputLine, string pattern)
     if (pattern.Length == 1)
         return inputLine.Contains(pattern);
 
+    if (pattern.StartsWith('[') && pattern.EndsWith(']'))
+    {
+        var chars = pattern.Substring(1, pattern.Length - 2);
+        Console.WriteLine(chars);
+        return chars.Any(c => inputLine.Contains(c));
+    }
+
     throw new ArgumentException($"Unhandled pattern: {pattern}");
 }
