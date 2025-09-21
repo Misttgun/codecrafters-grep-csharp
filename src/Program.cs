@@ -19,6 +19,9 @@ return;
 
 static bool MatchPattern(string inputLine, string pattern)
 {
+    if(pattern == "\\w")
+        return inputLine.Any( c => char.IsLetterOrDigit(c) || c == '_');
+    
     if (pattern == "\\d")
         return inputLine.Any(char.IsDigit);
     
