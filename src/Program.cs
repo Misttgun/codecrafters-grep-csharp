@@ -1,6 +1,3 @@
-using System;
-using System.IO;
-
 if (args[0] != "-E")
 {
     Console.WriteLine("Expected first argument to be '-E'");
@@ -17,17 +14,87 @@ else
 
 return;
 
+static bool MatchHere(string pattern, string inputLine)
+{
+    while (true)
+    {
+        if (pattern.Length == 0)
+            return true;
+
+        if (inputLine.Length == 0)
+            return false;
+
+        var c = inputLine[0];
+
+        if (pattern.StartsWith("\\w") && (char.IsLetterOrDigit(c) || c == '_'))
+        {
+            pattern = pattern[2..];
+            inputLine = inputLine[1..];
+            continue;
+        }
+
+        if (pattern.StartsWith("\\d") && char.IsDigit(c))
+        {
+            pattern = pattern[2..];
+            inputLine = inputLine[1..];
+            continue;
+        }
+
+        if (pattern.StartsWith("[^"))
+        {
+            var index = pattern.IndexOf(']');
+            if (index == -1)
+                return false;
+
+            var chars = pattern[2..index];
+            if (chars.Any(value => c.Equals(value)))
+                return false;
+
+            pattern = pattern[(index + 1)..];
+            inputLine = inputLine[1..];
+            continue;
+        }
+
+        if (pattern.StartsWith('['))
+        {
+            var index = pattern.IndexOf(']');
+            if (index == -1)
+                return false;
+
+            var chars = pattern[2..index];
+            var match = chars.Any(v => c.Equals(v));
+            if (match == false)
+                return false;
+
+            pattern = pattern[(index + 1)..];
+            inputLine = inputLine[1..];
+            continue;
+        }
+
+        if (pattern[0] == c)
+        {
+            pattern = pattern[1..];
+            inputLine = inputLine[1..];
+            continue;
+        }
+
+        return false;
+    }
+}
+
 static bool MatchPattern(string inputLine, string pattern)
 {
-    if(pattern == "\\w")
-        return inputLine.Any( c => char.IsLetterOrDigit(c) || c == '_');
-    
-    if (pattern == "\\d")
-        return inputLine.Any(char.IsDigit);
-    
+    switch (pattern)
+    {
+        case "\\w":
+            return inputLine.Any(c => char.IsLetterOrDigit(c) || c == '_');
+        case "\\d":
+            return inputLine.Any(char.IsDigit);
+    }
+
     if (pattern.Length == 1)
         return inputLine.Contains(pattern);
-    
+
     if (pattern.StartsWith("[^") && pattern.EndsWith(']'))
     {
         var chars = pattern.Substring(2, pattern.Length - 3);
@@ -40,5 +107,11 @@ static bool MatchPattern(string inputLine, string pattern)
         return chars.Any(c => inputLine.Contains(c));
     }
 
-    throw new ArgumentException($"Unhandled pattern: {pattern}");
+    for (var i = 0; i < inputLine.Length; i++)
+    {
+        if (MatchHere(pattern, inputLine[i..]))
+            return true;
+    }
+
+    return false;
 }
