@@ -42,7 +42,7 @@ static bool MatchHere(string pattern, string inputLine)
 
         if (pattern.StartsWith("[^"))
         {
-            var index = pattern.IndexOf(']');
+            var index = pattern.IndexOf(']', 2);
             if (index == -1)
                 return false;
 
@@ -57,7 +57,7 @@ static bool MatchHere(string pattern, string inputLine)
 
         if (pattern.StartsWith('['))
         {
-            var index = pattern.IndexOf(']');
+            var index = pattern.IndexOf(']', 1);
             if (index == -1)
                 return false;
 
@@ -84,29 +84,13 @@ static bool MatchHere(string pattern, string inputLine)
 
 static bool MatchPattern(string inputLine, string pattern)
 {
-    switch (pattern)
+    var shouldMatchStart = pattern.StartsWith('^');
+    if (shouldMatchStart)
     {
-        case "\\w":
-            return inputLine.Any(c => char.IsLetterOrDigit(c) || c == '_');
-        case "\\d":
-            return inputLine.Any(char.IsDigit);
+        pattern = pattern[1..];
+        return MatchHere(pattern, inputLine);       
     }
-
-    if (pattern.Length == 1)
-        return inputLine.Contains(pattern);
-
-    if (pattern.StartsWith("[^") && pattern.EndsWith(']'))
-    {
-        var chars = pattern.Substring(2, pattern.Length - 3);
-        return chars.Any(c => inputLine.Contains(c) == false);
-    }
-
-    if (pattern.StartsWith('[') && pattern.EndsWith(']'))
-    {
-        var chars = pattern.Substring(1, pattern.Length - 2);
-        return chars.Any(c => inputLine.Contains(c));
-    }
-
+    
     for (var i = 0; i < inputLine.Length; i++)
     {
         if (MatchHere(pattern, inputLine[i..]))
