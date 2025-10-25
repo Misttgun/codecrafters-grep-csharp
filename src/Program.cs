@@ -20,6 +20,9 @@ static bool MatchHere(string pattern, string inputLine)
     {
         if (pattern.Length == 0)
             return true;
+        
+        if (pattern[0] == '$')
+            return inputLine.Length == 0;
 
         if (inputLine.Length == 0)
             return false;
