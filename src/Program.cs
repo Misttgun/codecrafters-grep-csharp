@@ -29,9 +29,17 @@ static bool MatchHere(string pattern, string inputLine)
         if (IsWordChar(c) == false)
             return false;
 
-        // Check if there's a + quantifier after the character class
-        if (pattern.Length > 2 && pattern[2] == '+')
-            return MatchOneOrMore(pattern[3..], inputLine, IsWordChar);
+        // Process quantifier after the character class
+        if (pattern.Length > 2)
+        {
+            switch (pattern[2])
+            {
+                case '+':
+                    return MatchOneOrMore(pattern[3..], inputLine, IsWordChar);
+                case '?':
+                    return MatchZeroOrOne(pattern[3..], inputLine, IsWordChar);
+            }
+        }
 
         return MatchHere(pattern[2..], inputLine[1..]);
     }
@@ -41,9 +49,17 @@ static bool MatchHere(string pattern, string inputLine)
         if (char.IsDigit(c) == false)
             return false;
 
-        // Check if there's a + quantifier after the character class
-        if (pattern.Length > 2 && pattern[2] == '+')
-            return MatchOneOrMore(pattern[3..], inputLine, char.IsDigit);
+        // Process quantifier after the character class
+        if (pattern.Length > 2)
+        {
+            switch (pattern[2])
+            {
+                case '+':
+                    return MatchOneOrMore(pattern[3..], inputLine, char.IsDigit);
+                case '?':
+                    return MatchZeroOrOne(pattern[3..], inputLine, char.IsDigit);
+            }
+        }
 
         return MatchHere(pattern[2..], inputLine[1..]);
     }
@@ -66,8 +82,16 @@ static bool MatchHere(string pattern, string inputLine)
             return false;
 
         // Check if there's a + quantifier after the character class
-        if (pattern.Length > index + 1 && pattern[index + 1] == '+')
-            return MatchOneOrMore(pattern[(index + 2)..], inputLine, IsCharInWord);
+        if (pattern.Length > index + 1)
+        {
+            switch (pattern[index + 1])
+            {
+                case '+':
+                    return MatchOneOrMore(pattern[(index + 2)..], inputLine, IsCharInWord);
+                case '?':
+                    return MatchZeroOrOne(pattern[(index + 2)..], inputLine, IsCharInWord);
+            }
+        }
 
         return MatchHere(pattern[(index + 1)..], inputLine[1..]);
 
@@ -83,35 +107,58 @@ static bool MatchHere(string pattern, string inputLine)
     var matchChar = pattern[0];
     if (IsLiteralChar(matchChar) == false)
         return false;
-
-    if (matchChar != c)
-        return false;
     
-    if (pattern.Length > 1 && pattern[1] == '+')
-        return MatchOneOrMore(pattern[2..], inputLine, c => c == matchChar);
-
-    return MatchHere(pattern[1..], inputLine[1..]);
+    if (pattern.Length > 1)
+    {
+        switch (pattern[1])
+        {
+            case '+':
+                return MatchOneOrMore(pattern[2..], inputLine, c => c == matchChar);
+            case '?':
+                return MatchZeroOrOne(pattern[2..], inputLine, c => c == matchChar);
+        }
+    }
+    
+    return matchChar == c && MatchHere(pattern[1..], inputLine[1..]);
 }
 
 static bool MatchOneOrMore(string remainingPattern, string inputLine, Func<char, bool> matcher)
 {
     // Match as many characters as possible (greedy)
     int matchCount = 0;
-    int maxMatches = 0;
 
     for (int i = 0; i < inputLine.Length && matcher(inputLine[i]); i++)
-    {
-        maxMatches++;
-    }
+        matchCount++;
 
     // Try to match the rest of the pattern, backtracking from longest match
-    for (int i = maxMatches; i >= 1; i--)
+    for (int i = matchCount; i >= 1; i--)
     {
         if (MatchHere(remainingPattern, inputLine[i..]))
             return true;
     }
 
     return false;
+}
+
+static bool MatchZeroOrOne(string remainingPattern, string inputLine, Func<char, bool> matcher)
+{
+    // Match as many characters as possible (greedy)
+    int matchCount = 0;
+
+    for (int i = 0; i < inputLine.Length && matcher(inputLine[i]); i++)
+        matchCount++;
+    
+    if (matchCount > 1)
+        return false;
+
+    // Try to match the rest of the pattern, backtracking from longest match
+    for (int i = matchCount; i >= 1; i--)
+    {
+        if (MatchHere(remainingPattern, inputLine[i..]))
+            return true;
+    }
+
+    return MatchHere(remainingPattern, inputLine);
 }
 
 static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
