@@ -4,6 +4,12 @@ if (args[0] != "-E")
     Environment.Exit(2);
 }
 
+// Temporary: Simulate piped input for debugging
+if (Console.IsInputRedirected == false)
+{
+    Console.SetIn(new StringReader("goøö0Ogol"));
+}
+
 string pattern = args[1];
 string inputLine = Console.In.ReadToEnd();
 
@@ -102,9 +108,35 @@ static bool MatchHere(string pattern, string inputLine)
             return isNegated ? !match : match;
         }
     }
-
-    // Handle literal character
+    
     var matchChar = pattern[0];
+    
+    // Handle wildcard
+    if (matchChar == '.')
+    {
+        Console.WriteLine($"Match char: {c}");
+        if (c == '\n')
+        {
+            Console.WriteLine("Found newline");
+            return false;
+        }
+
+        // Process quantifier after the character class
+        if (pattern.Length > 1)
+        {
+            switch (pattern[1])
+            {
+                case '+':
+                    return MatchOneOrMore(pattern[2..], inputLine, c => c != '\n');
+                case '?':
+                    return MatchZeroOrOne(pattern[2..], inputLine, c => c != '\n');
+            }
+        }
+
+        return MatchHere(pattern[1..], inputLine[1..]);
+    }
+        
+    // Handle literal character
     if (IsLiteralChar(matchChar) == false)
         return false;
     
@@ -129,20 +161,22 @@ static bool MatchOneOrMore(string remainingPattern, string inputLine, Func<char,
 
     for (int i = 0; i < inputLine.Length && matcher(inputLine[i]); i++)
         matchCount++;
+    
+    Console.WriteLine($"matchCount: {matchCount}");
 
-    // Try to match the rest of the pattern, backtracking from longest match
+    // Try to match the rest of the pattern, backtracking from the longest match
     for (int i = matchCount; i >= 1; i--)
     {
         if (MatchHere(remainingPattern, inputLine[i..]))
             return true;
     }
 
+    Console.WriteLine("Could not match");
     return false;
 }
 
 static bool MatchZeroOrOne(string remainingPattern, string inputLine, Func<char, bool> matcher)
 {
-    // Match as many characters as possible (greedy)
     int matchCount = 0;
 
     for (int i = 0; i < inputLine.Length && matcher(inputLine[i]); i++)
@@ -151,7 +185,7 @@ static bool MatchZeroOrOne(string remainingPattern, string inputLine, Func<char,
     if (matchCount > 1)
         return false;
 
-    // Try to match the rest of the pattern, backtracking from longest match
+    // Try to match the rest of the pattern
     for (int i = matchCount; i >= 1; i--)
     {
         if (MatchHere(remainingPattern, inputLine[i..]))
