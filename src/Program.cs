@@ -25,10 +25,9 @@ static bool MatchHere(string pattern, string inputLine)
     if (pattern.Length == 0)
         return true;
 
-    if (inputLine.Length == 0)
-        return MatchEmptyInput(pattern);
-
-    var c = inputLine[0];
+    // Handle end of string anchor
+    if (pattern == "$")
+        return inputLine.Length == 0;
 
     if (pattern.StartsWith('('))
     {
@@ -41,44 +40,10 @@ static bool MatchHere(string pattern, string inputLine)
     }
 
     if (pattern.StartsWith("\\w"))
-    {
-        if (IsWordChar(c) == false)
-            return false;
-
-        // Process quantifier after the character class
-        if (pattern.Length > 2)
-        {
-            switch (pattern[2])
-            {
-                case '+':
-                    return MatchOneOrMore(pattern[3..], inputLine, IsWordChar);
-                case '?':
-                    return MatchZeroOrOne(pattern[3..], inputLine, IsWordChar);
-            }
-        }
-
-        return MatchHere(pattern[2..], inputLine[1..]);
-    }
+        return MatchToken(pattern, inputLine, 2, IsWordChar);
 
     if (pattern.StartsWith("\\d"))
-    {
-        if (char.IsDigit(c) == false)
-            return false;
-
-        // Process quantifier after the character class
-        if (pattern.Length > 2)
-        {
-            switch (pattern[2])
-            {
-                case '+':
-                    return MatchOneOrMore(pattern[3..], inputLine, char.IsDigit);
-                case '?':
-                    return MatchZeroOrOne(pattern[3..], inputLine, char.IsDigit);
-            }
-        }
-
-        return MatchHere(pattern[2..], inputLine[1..]);
-    }
+        return MatchToken(pattern, inputLine, 2, char.IsDigit);
 
     if (pattern.StartsWith('['))
     {
@@ -90,166 +55,41 @@ static bool MatchHere(string pattern, string inputLine)
         var startIdx = isNegated ? 2 : 1;
         var chars = pattern[startIdx..index];
 
-        var match = chars.Any(v => c.Equals(v));
-        if (isNegated)
-            match = !match;
-
-        if (match == false)
-            return false;
-
-        // Check if there's a + quantifier after the character class
-        if (pattern.Length > index + 1)
-        {
-            switch (pattern[index + 1])
-            {
-                case '+':
-                    return MatchOneOrMore(pattern[(index + 2)..], inputLine, IsCharInWord);
-                case '?':
-                    return MatchZeroOrOne(pattern[(index + 2)..], inputLine, IsCharInWord);
-            }
-        }
-
-        return MatchHere(pattern[(index + 1)..], inputLine[1..]);
-
-        // Local function to check if a character is in a word
-        bool IsCharInWord(char ch)
+        return MatchToken(pattern, inputLine, index + 1, ch =>
         {
             bool match = chars.Any(v => ch.Equals(v));
             return isNegated ? !match : match;
-        }
+        });
     }
 
     var matchChar = pattern[0];
 
     // Handle wildcard
     if (matchChar == '.')
-    {
-        Console.WriteLine($"Match char: {c}");
-        if (c == '\n')
-        {
-            Console.WriteLine("Found newline");
-            return false;
-        }
-
-        // Process quantifier after the character class
-        if (pattern.Length > 1)
-        {
-            switch (pattern[1])
-            {
-                case '+':
-                    return MatchOneOrMore(pattern[2..], inputLine, c => c != '\n');
-                case '?':
-                    return MatchZeroOrOne(pattern[2..], inputLine, c => c != '\n');
-            }
-        }
-
-        return MatchHere(pattern[1..], inputLine[1..]);
-    }
+        return MatchToken(pattern, inputLine, 1, c => c != '\n');
 
     // Handle literal character
-    if (IsLiteralChar(matchChar) == false)
-        return false;
+    if (IsLiteralChar(matchChar))
+        return MatchToken(pattern, inputLine, 1, c => c == matchChar);
 
-    if (pattern.Length > 1)
-    {
-        switch (pattern[1])
-        {
-            case '+':
-                return MatchOneOrMore(pattern[2..], inputLine, c => c == matchChar);
-            case '?':
-                return MatchZeroOrOne(pattern[2..], inputLine, c => c == matchChar);
-        }
-    }
-
-    return matchChar == c && MatchHere(pattern[1..], inputLine[1..]);
+    return false;
 }
 
-static bool MatchEmptyInput(string pattern)
+static bool MatchToken(string pattern, string inputLine, int tokenLength, Func<char, bool> matcher)
 {
-    if (pattern == "$")
-        return true;
-
-    if (pattern.StartsWith('('))
+    // Check for quantifiers first
+    if (pattern.Length > tokenLength)
     {
-        var index = pattern.IndexOf(')', 1);
-        if (index == -1)
-            return false;
-
-        var subPatterns = pattern[1..index].Split('|');
-        return MatchAlternation(pattern[(index + 1)..], "", subPatterns);
+        var nextChar = pattern[tokenLength];
+        if (nextChar == '+')
+            return MatchOneOrMore(pattern[(tokenLength + 1)..], inputLine, matcher);
+        if (nextChar == '?')
+            return MatchZeroOrOne(pattern[(tokenLength + 1)..], inputLine, matcher);
     }
 
-    if (pattern.StartsWith("\\w"))
-    {
-        // Process quantifier after the character class
-        if (pattern.Length > 2)
-        {
-            switch (pattern[2])
-            {
-                case '+':
-                    return false;
-                case '?':
-                    return MatchZeroOrOne(pattern[3..], "", IsWordChar);
-            }
-        }
-
-        return false;
-    }
-
-    if (pattern.StartsWith("\\d"))
-    {
-        // Process quantifier after the character class
-        if (pattern.Length > 2)
-        {
-            switch (pattern[2])
-            {
-                case '+':
-                    return false;
-                case '?':
-                    return MatchZeroOrOne(pattern[3..], "", char.IsDigit);
-            }
-        }
-
-        return false;
-    }
-
-    if (pattern.StartsWith('['))
-        return false;
-
-    var matchChar = pattern[0];
-
-    // Handle wildcard
-    if (matchChar == '.')
-    {
-        // Process quantifier after the character class
-        if (pattern.Length > 1)
-        {
-            switch (pattern[1])
-            {
-                case '+':
-                    return false;
-                case '?':
-                    return MatchZeroOrOne(pattern[2..], "", c => c != '\n');
-            }
-        }
-
-        return false;
-    }
-
-    // Handle literal character
-    if (IsLiteralChar(matchChar) == false)
-        return false;
-
-    if (pattern.Length > 1)
-    {
-        switch (pattern[1])
-        {
-            case '+':
-                return false;
-            case '?':
-                return MatchZeroOrOne(pattern[2..], "", c => c == matchChar);
-        }
-    }
+    // No quantifier: try to match exactly one character
+    if (inputLine.Length > 0 && matcher(inputLine[0]))
+        return MatchHere(pattern[tokenLength..], inputLine[1..]);
 
     return false;
 }
@@ -261,14 +101,14 @@ static bool MatchOneOrMore(string remainingPattern, string inputLine, Func<char,
 
     for (int i = 0; i < inputLine.Length && matcher(inputLine[i]); i++)
         matchCount++;
-    
+
     // Try to match the rest of the pattern, backtracking from the longest match
     for (int i = matchCount; i >= 1; i--)
     {
         if (MatchHere(remainingPattern, inputLine[i..]))
             return true;
     }
-    
+
     return false;
 }
 
