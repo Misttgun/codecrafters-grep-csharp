@@ -36,7 +36,7 @@ static int MatchHere(string pattern, string inputLine)
     if (pattern.StartsWith('('))
     {
         var endIndex = pattern.IndexOf(')', 1);
-        if (endIndex == -1) 
+        if (endIndex == -1)
             return -1;
 
         var subPatterns = pattern[1..endIndex].Split('|');
@@ -46,7 +46,7 @@ static int MatchHere(string pattern, string inputLine)
     else if (pattern.StartsWith('['))
     {
         var endIndex = pattern.IndexOf(']', 1);
-        if (endIndex == -1) 
+        if (endIndex == -1)
             return -1;
 
         var isNegated = pattern[1] == '^';
@@ -56,13 +56,13 @@ static int MatchHere(string pattern, string inputLine)
 
         atomMatcher = input =>
         {
-            if (input.Length == 0) 
+            if (input.Length == 0)
                 return -1;
-            
+
             bool match = chars.Contains(input[0]);
             if (isNegated)
                 match = !match;
-            
+
             return match ? 1 : -1;
         };
     }
@@ -83,9 +83,9 @@ static int MatchHere(string pattern, string inputLine)
     }
     else // Literal
     {
-        if (IsLiteralChar(pattern[0]) == false) 
+        if (IsLiteralChar(pattern[0]) == false)
             return -1;
-        
+
         char expected = pattern[0];
         atomPatternLength = 1;
         atomMatcher = input => (input.Length > 0 && input[0] == expected) ? 1 : -1;
@@ -105,7 +105,7 @@ static int MatchHere(string pattern, string inputLine)
 
     // Default: Match Exactly Once
     int consumed = atomMatcher(inputLine);
-    if (consumed == -1) 
+    if (consumed == -1)
         return -1;
 
     int restConsumed = MatchHere(remainingPattern, inputLine[consumed..]);
@@ -121,14 +121,14 @@ static int MatchOneOrMore(Func<string, int> atomMatcher, string remainingPattern
     while (true)
     {
         int consumed = atomMatcher(inputLine[totalAtomConsumed..]);
-        if (consumed == -1) 
+        if (consumed == -1)
             break;
 
         totalAtomConsumed += consumed;
         consumptionHistory.Add(consumed);
     }
 
-    if (consumptionHistory.Count == 0) 
+    if (consumptionHistory.Count == 0)
         return -1;
 
     // Backtrack
@@ -189,12 +189,21 @@ static bool MatchPattern(string inputLine, string pattern)
     if (shouldMatchStart)
     {
         pattern = pattern[1..];
-        return MatchHere(pattern, inputLine) != -1;
+        bool matched = MatchHere(pattern, inputLine) != -1;
+        if (matched)
+            Console.WriteLine(inputLine);
+
+        return matched;
     }
 
-    for (var i = 0; i < inputLine.Length; i++) {
-        if (MatchHere(pattern, inputLine[i..]) != -1)
+    for (var i = 0; i < inputLine.Length; i++)
+    {
+        bool matched = MatchHere(pattern, inputLine[i..]) != -1;
+        if (matched)
+        {
+            Console.WriteLine(inputLine);
             return true;
+        }
     }
 
     return false;
