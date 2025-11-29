@@ -7,7 +7,7 @@ if (args[0] != "-E")
 // Temporary: Simulate piped input for debugging
 if (Console.IsInputRedirected == false)
 {
-    Console.SetIn(new StringReader("I see 2 cot"));
+    Console.SetIn(new StringReader("banana_banana"));
 }
 
 string pattern = args[1];
@@ -189,22 +189,12 @@ static bool MatchPattern(string inputLine, string pattern)
     if (shouldMatchStart)
     {
         pattern = pattern[1..];
-        int matchCount = MatchHere(pattern, inputLine);
-        if (matchCount != -1)
-        {
-            Console.WriteLine(inputLine[..matchCount]);
-            return true;
-        }
+        return MatchHere(pattern, inputLine) != -1;
     }
 
-    for (var i = 0; i < inputLine.Length; i++)
-    {
-        int matchCount = MatchHere(pattern, inputLine[i..]);
-        if (matchCount != -1)
-        {
-            Console.WriteLine(inputLine[i..(i + matchCount)]);
+    for (var i = 0; i < inputLine.Length; i++) {
+        if (MatchHere(pattern, inputLine[i..]) != -1)
             return true;
-        }
     }
 
     return false;
