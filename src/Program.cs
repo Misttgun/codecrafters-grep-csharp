@@ -7,7 +7,7 @@ if (args[0] != "-E")
 // Temporary: Simulate piped input for debugging
 if (Console.IsInputRedirected == false)
 {
-    Console.SetIn(new StringReader("goøö0Ogol"));
+    Console.SetIn(new StringReader("I see 1 cat"));
 }
 
 string pattern = args[1];
@@ -26,9 +26,19 @@ static bool MatchHere(string pattern, string inputLine)
         return true;
 
     if (inputLine.Length == 0)
-        return pattern == "$";
+        return MatchEmptyInput(pattern);
 
     var c = inputLine[0];
+
+    if (pattern.StartsWith('('))
+    {
+        var index = pattern.IndexOf(')', 1);
+        if (index == -1)
+            return false;
+
+        var subPatterns = pattern[1..index].Split('|');
+        return MatchAlternation(pattern[(index + 1)..], inputLine, subPatterns);
+    }
 
     if (pattern.StartsWith("\\w"))
     {
@@ -69,7 +79,7 @@ static bool MatchHere(string pattern, string inputLine)
 
         return MatchHere(pattern[2..], inputLine[1..]);
     }
-    
+
     if (pattern.StartsWith('['))
     {
         var index = pattern.IndexOf(']', 1);
@@ -108,9 +118,9 @@ static bool MatchHere(string pattern, string inputLine)
             return isNegated ? !match : match;
         }
     }
-    
+
     var matchChar = pattern[0];
-    
+
     // Handle wildcard
     if (matchChar == '.')
     {
@@ -135,11 +145,11 @@ static bool MatchHere(string pattern, string inputLine)
 
         return MatchHere(pattern[1..], inputLine[1..]);
     }
-        
+
     // Handle literal character
     if (IsLiteralChar(matchChar) == false)
         return false;
-    
+
     if (pattern.Length > 1)
     {
         switch (pattern[1])
@@ -150,8 +160,98 @@ static bool MatchHere(string pattern, string inputLine)
                 return MatchZeroOrOne(pattern[2..], inputLine, c => c == matchChar);
         }
     }
-    
+
     return matchChar == c && MatchHere(pattern[1..], inputLine[1..]);
+}
+
+static bool MatchEmptyInput(string pattern)
+{
+    if (pattern == "$")
+        return true;
+
+    if (pattern.StartsWith('('))
+    {
+        var index = pattern.IndexOf(')', 1);
+        if (index == -1)
+            return false;
+
+        var subPatterns = pattern[1..index].Split('|');
+        return MatchAlternation(pattern[(index + 1)..], "", subPatterns);
+    }
+
+    if (pattern.StartsWith("\\w"))
+    {
+        // Process quantifier after the character class
+        if (pattern.Length > 2)
+        {
+            switch (pattern[2])
+            {
+                case '+':
+                    return false;
+                case '?':
+                    return MatchZeroOrOne(pattern[3..], "", IsWordChar);
+            }
+        }
+
+        return false;
+    }
+
+    if (pattern.StartsWith("\\d"))
+    {
+        // Process quantifier after the character class
+        if (pattern.Length > 2)
+        {
+            switch (pattern[2])
+            {
+                case '+':
+                    return false;
+                case '?':
+                    return MatchZeroOrOne(pattern[3..], "", char.IsDigit);
+            }
+        }
+
+        return false;
+    }
+
+    if (pattern.StartsWith('['))
+        return false;
+
+    var matchChar = pattern[0];
+
+    // Handle wildcard
+    if (matchChar == '.')
+    {
+        // Process quantifier after the character class
+        if (pattern.Length > 1)
+        {
+            switch (pattern[1])
+            {
+                case '+':
+                    return false;
+                case '?':
+                    return MatchZeroOrOne(pattern[2..], "", c => c != '\n');
+            }
+        }
+
+        return false;
+    }
+
+    // Handle literal character
+    if (IsLiteralChar(matchChar) == false)
+        return false;
+
+    if (pattern.Length > 1)
+    {
+        switch (pattern[1])
+        {
+            case '+':
+                return false;
+            case '?':
+                return MatchZeroOrOne(pattern[2..], "", c => c == matchChar);
+        }
+    }
+
+    return false;
 }
 
 static bool MatchOneOrMore(string remainingPattern, string inputLine, Func<char, bool> matcher)
@@ -162,16 +262,13 @@ static bool MatchOneOrMore(string remainingPattern, string inputLine, Func<char,
     for (int i = 0; i < inputLine.Length && matcher(inputLine[i]); i++)
         matchCount++;
     
-    Console.WriteLine($"matchCount: {matchCount}");
-
     // Try to match the rest of the pattern, backtracking from the longest match
     for (int i = matchCount; i >= 1; i--)
     {
         if (MatchHere(remainingPattern, inputLine[i..]))
             return true;
     }
-
-    Console.WriteLine("Could not match");
+    
     return false;
 }
 
@@ -181,7 +278,7 @@ static bool MatchZeroOrOne(string remainingPattern, string inputLine, Func<char,
 
     for (int i = 0; i < inputLine.Length && matcher(inputLine[i]); i++)
         matchCount++;
-    
+
     if (matchCount > 1)
         return false;
 
@@ -193,6 +290,20 @@ static bool MatchZeroOrOne(string remainingPattern, string inputLine, Func<char,
     }
 
     return MatchHere(remainingPattern, inputLine);
+}
+
+static bool MatchAlternation(string remainingPattern, string inputLine, string[] subPatterns)
+{
+    foreach (var subPattern in subPatterns)
+    {
+        if (MatchHere(subPattern, inputLine))
+        {
+            int matchedLength = subPattern.Length;
+            return MatchHere(remainingPattern, inputLine[matchedLength..]);
+        }
+    }
+
+    return false;
 }
 
 static bool IsWordChar(char c) => char.IsLetterOrDigit(c) || c == '_';
