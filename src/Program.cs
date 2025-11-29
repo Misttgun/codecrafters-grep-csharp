@@ -13,10 +13,19 @@ if (Console.IsInputRedirected == false)
 string pattern = args[1];
 string inputLine = Console.In.ReadToEnd();
 
-if (MatchPattern(inputLine, pattern))
-    Environment.Exit(0);
-else
-    Environment.Exit(1);
+var inputs = inputLine.Split('\n');
+bool matched = false;
+
+foreach (var input in inputs)
+{
+    if (MatchPattern(input, pattern))
+    {
+        if (matched == false)
+            matched = true;
+    }
+}
+
+Environment.Exit(matched ? 0 : 1);
 
 return;
 
