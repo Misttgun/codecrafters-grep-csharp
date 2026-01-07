@@ -18,8 +18,19 @@ while (Console.In.ReadLine() is { } line)
 
 if (options.Paths.Count > 0)
 {
-    bool multiplePaths = options.Paths.Count > 1;
-    foreach (var path in options.Paths)
+    var paths = new List<string>();
+    if (options.RecursiveSearch)
+    {
+        if (Directory.Exists(options.Paths[0]))
+            paths.AddRange(Directory.EnumerateFiles(options.Paths[0], "*.txt", SearchOption.AllDirectories));
+    }
+    else
+    {
+        paths = options.Paths;
+    }
+    
+    bool multiplePaths = paths.Count > 1;
+    foreach (var path in paths)
     {
         if (Path.Exists(path) == false)
             continue;

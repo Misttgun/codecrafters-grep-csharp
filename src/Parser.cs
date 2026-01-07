@@ -2,7 +2,7 @@
 
 public static class Parser
 {
-    public readonly record struct Options(string Pattern, List<string> Paths, bool PrintMatchesOnly);
+    public readonly record struct Options(string Pattern, List<string> Paths, bool PrintMatchesOnly, bool RecursiveSearch);
     
     public static bool TryParseArgs(string[] args, out Options options)
     {
@@ -16,6 +16,7 @@ public static class Parser
         }
 
         var printMatchesOnly = args.Contains("-o");
+        var recursiveSearch = args.Contains("-r");
 
         // First non-flag token is the pattern.
         string? pattern = null;
@@ -37,7 +38,7 @@ public static class Parser
             return false;
         }
 
-        options = new Options(pattern, paths, printMatchesOnly);
+        options = new Options(pattern, paths, printMatchesOnly, recursiveSearch);
         return true;
     }
 }
