@@ -8,12 +8,17 @@ var matchedAnyLine = false;
 
 while (Console.In.ReadLine() is { } line)
 {
-    if (Matcher.MatchPattern(line, options.Pattern, options.PrintMatchesOnly))
+    var result = Matcher.MatchPattern(line, options.Pattern, options.PrintMatchesOnly);
+    if (string.IsNullOrEmpty(result) == false)
+    {
         matchedAnyLine = true;
+        Console.Write(result);
+    }
 }
 
 if (options.Paths.Count > 0)
 {
+    bool multiplePaths = options.Paths.Count > 1;
     foreach (var path in options.Paths)
     {
         if (Path.Exists(path) == false)
@@ -21,8 +26,12 @@ if (options.Paths.Count > 0)
         
         foreach (var line in File.ReadAllLines(path))
         {
-            if (Matcher.MatchPattern(line, options.Pattern, options.PrintMatchesOnly))
+            var result = Matcher.MatchPattern(line, options.Pattern, options.PrintMatchesOnly);
+            if (string.IsNullOrEmpty(result) == false)
+            {
                 matchedAnyLine = true;
+                Console.Write(multiplePaths ? $"{path}:{result}" : result);
+            }
         }
     }
 }

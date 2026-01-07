@@ -1,29 +1,29 @@
-﻿namespace codecrafters_grep;
+﻿using System.Text;
+
+namespace codecrafters_grep;
 
 public static class Matcher
 {
     private static readonly List<char> BannedChars = ['+', '.', '?', '|', '^', '$', '[', ']', '(', ')', '{', '}', '\\'];
 
-    public static bool MatchPattern(string inputLine, string pattern, bool printMatched)
+    public static string MatchPattern(string inputLine, string pattern, bool printMatched)
     {
-        var matchedAny = false;
+        StringBuilder builder = new StringBuilder();
 
         foreach (var (start, length) in FindMatches(inputLine, pattern))
         {
-            matchedAny = true;
-
             if (printMatched)
             {
-                Console.WriteLine(inputLine.Substring(start, length));
+                builder.AppendLine(inputLine.Substring(start, length));
             }
             else
             {
-                Console.WriteLine(inputLine);
+                builder.AppendLine(inputLine);
                 break;
             }
         }
 
-        return matchedAny;
+        return builder.ToString();
     }
 
     private static IEnumerable<(int Start, int Length)> FindMatches(string inputLine, string pattern)
