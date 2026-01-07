@@ -2,7 +2,7 @@
 
 public static class Parser
 {
-    public readonly record struct Options(string Pattern, bool PrintMatchesOnly);
+    public readonly record struct Options(string Pattern, List<string> Paths, bool PrintMatchesOnly);
     
     public static bool TryParseArgs(string[] args, out Options options)
     {
@@ -18,14 +18,26 @@ public static class Parser
         var printMatchesOnly = args.Contains("-o");
 
         // First non-flag token is the pattern.
-        var pattern = args.FirstOrDefault(a => a.Length > 0 && a[0] != '-');
+        string? pattern = null;
+        List<string> paths = new List<string>();
+        foreach (var arg in args)
+        {
+            if (arg.Length > 0 && arg.StartsWith('-') == false)
+            {
+                if (pattern == null)
+                    pattern = arg;
+                else
+                    paths.Add(arg);
+            }
+        }
+        
         if (string.IsNullOrEmpty(pattern))
         {
             Console.WriteLine("Expected a pattern argument");
             return false;
         }
 
-        options = new Options(pattern, printMatchesOnly);
+        options = new Options(pattern, paths, printMatchesOnly);
         return true;
     }
 }
