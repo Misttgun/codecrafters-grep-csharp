@@ -138,6 +138,9 @@ public static class Matcher
 
             if (pattern[atomPatternLength] == '?')
                 return MatchZeroOrOne(atomMatcher, remainingPattern[1..], inputLine);
+            
+            if (pattern[atomPatternLength] == '*')
+                return MatchZeroOrMore(atomMatcher, remainingPattern[1..], inputLine);
         }
 
         // Default: Match Exactly Once
@@ -197,6 +200,42 @@ public static class Matcher
 
         // Try matching zero
         return MatchHere(remainingPattern, inputLine);
+    }
+
+    private static int MatchZeroOrMore(Func<string, int> atomMatcher, string remainingPattern, string inputLine)
+    {
+        int totalAtomConsumed = 0;
+        var consumptionHistory = new List<int>(); // Track how much each step consumed for backtracking
+
+        // Greedy match: consume as many atoms as possible
+        while (true)
+        {
+            int consumed = atomMatcher(inputLine[totalAtomConsumed..]);
+            if (consumed == -1)
+                break;
+
+            totalAtomConsumed += consumed;
+            consumptionHistory.Add(consumed);
+        }
+
+        // Try matching zero
+        if (consumptionHistory.Count == 0)
+            return MatchHere(remainingPattern, inputLine);
+
+        // Backtrack
+        while (consumptionHistory.Count > 0)
+        {
+            int restConsumed = MatchHere(remainingPattern, inputLine[totalAtomConsumed..]);
+            if (restConsumed != -1)
+                return totalAtomConsumed + restConsumed;
+
+            // Backtrack: give up the last matched atom
+            int lastStep = consumptionHistory[^1];
+            consumptionHistory.RemoveAt(consumptionHistory.Count - 1);
+            totalAtomConsumed -= lastStep;
+        }
+
+        return -1;
     }
 
     private static int MatchAlternationGroup(string[] subPatterns, string inputLine)
