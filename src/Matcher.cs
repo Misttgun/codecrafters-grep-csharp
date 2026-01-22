@@ -141,6 +141,16 @@ public static class Matcher
             
             if (pattern[atomPatternLength] == '*')
                 return MatchZeroOrMore(atomMatcher, remainingPattern[1..], inputLine);
+            
+            if (pattern[atomPatternLength] == '{')
+            {
+                var endIndex = pattern.IndexOf('}', atomPatternLength + 1);
+                if (endIndex == -1)
+                    return -1;
+                
+                int n = int.Parse(pattern[(atomPatternLength + 1)..endIndex]);
+                return MatchExactlyNTimes(atomMatcher, n, remainingPattern[3..], inputLine);
+            }
         }
 
         // Default: Match Exactly Once
@@ -236,6 +246,29 @@ public static class Matcher
         }
 
         return -1;
+    }
+
+    private static int MatchExactlyNTimes(Func<string, int> atomMatcher, int n, string remainingPattern, string inputLine)
+    {
+        int totalAtomConsumed = 0;
+        int numMatches = 0;
+
+        // Greedy match: consume as many atoms as possible
+        while (true)
+        {
+            int consumed = atomMatcher(inputLine[totalAtomConsumed..]);
+            if (consumed == -1)
+                break;
+
+            totalAtomConsumed += consumed;
+            numMatches++;
+        }
+
+        // Try matching zero
+        if (numMatches != n)
+            return -1;
+        
+        return MatchHere(remainingPattern, inputLine[totalAtomConsumed..]);
     }
 
     private static int MatchAlternationGroup(string[] subPatterns, string inputLine)
