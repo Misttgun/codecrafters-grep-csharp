@@ -148,8 +148,27 @@ public static class Matcher
                 if (endIndex == -1)
                     return -1;
                 
-                int n = int.Parse(pattern[(atomPatternLength + 1)..endIndex]);
-                return MatchExactlyNTimes(atomMatcher, n, remainingPattern[3..], inputLine);
+                int m = 0;
+                int n;
+                int count = endIndex - atomPatternLength - 1;
+                var midIndex = pattern.IndexOf(',', atomPatternLength + 1, count);
+                if (midIndex != -1)
+                {
+                    if (int.TryParse(pattern[(midIndex + 1)..endIndex], out m) == false)
+                        m = int.MaxValue;
+                    
+                    int.TryParse(pattern[(atomPatternLength + 1)..midIndex], out n);
+                }
+                else
+                {
+                    int.TryParse(pattern[(atomPatternLength + 1)..endIndex], out n);
+                }
+                
+                if (n == 0)
+                    return -1;
+
+                var len = endIndex - atomPatternLength + 1;
+                return MatchBetweenNAndM(atomMatcher, n, m, remainingPattern[len..], inputLine);
             }
         }
 
@@ -248,7 +267,7 @@ public static class Matcher
         return -1;
     }
 
-    private static int MatchExactlyNTimes(Func<string, int> atomMatcher, int n, string remainingPattern, string inputLine)
+    private static int MatchBetweenNAndM(Func<string, int> atomMatcher, int n, int m, string remainingPattern, string inputLine)
     {
         int totalAtomConsumed = 0;
         int numMatches = 0;
@@ -264,10 +283,11 @@ public static class Matcher
             numMatches++;
         }
 
-        // Try matching zero
-        if (numMatches != n)
+        if (m == 0 && numMatches != n)
             return -1;
-        
+        if (m > 0 && (numMatches < n || numMatches > m))
+            return -1;
+
         return MatchHere(remainingPattern, inputLine[totalAtomConsumed..]);
     }
 
