@@ -6,6 +6,8 @@ public static class Matcher
 {
     private static readonly List<char> BannedChars = ['+', '.', '?', '|', '^', '$', '[', ']', '(', ')', '{', '}', '\\'];
 
+    private static readonly List<string> BackReferences = new List<string>();
+
     public static string MatchPattern(string inputLine, string pattern, bool printMatched)
     {
         StringBuilder builder = new StringBuilder();
@@ -72,13 +74,16 @@ public static class Matcher
 
         if (pattern.StartsWith('('))
         {
-            var endIndex = pattern.IndexOf(')', 1);
+            var endIndex = pattern.LastIndexOf(')');
             if (endIndex == -1)
                 return -1;
 
             var subPatterns = pattern[1..endIndex].Split('|');
             atomPatternLength = endIndex + 1;
-            atomMatcher = input => MatchAlternationGroup(subPatterns, input);
+            if (subPatterns.Length > 1)
+                atomMatcher = input => MatchAlternationGroup(subPatterns, input);
+            else
+                atomMatcher = input => MatchCaptureGroup(subPatterns[0], input);
         }
         else if (pattern.StartsWith('['))
         {
@@ -113,6 +118,11 @@ public static class Matcher
             atomPatternLength = 2;
             atomMatcher = input => (input.Length > 0 && char.IsDigit(input[0])) ? 1 : -1;
         }
+        else if (pattern.StartsWith('\\'))
+        {
+            atomPatternLength = 2;
+            atomMatcher = input => MatchBackReference(pattern, input);
+        }
         else if (pattern[0] == '.')
         {
             atomPatternLength = 1;
@@ -138,16 +148,16 @@ public static class Matcher
 
             if (pattern[atomPatternLength] == '?')
                 return MatchZeroOrOne(atomMatcher, remainingPattern[1..], inputLine);
-            
+
             if (pattern[atomPatternLength] == '*')
                 return MatchZeroOrMore(atomMatcher, remainingPattern[1..], inputLine);
-            
+
             if (pattern[atomPatternLength] == '{')
             {
                 var endIndex = pattern.IndexOf('}', atomPatternLength + 1);
                 if (endIndex == -1)
                     return -1;
-                
+
                 int m = 0;
                 int n;
                 int count = endIndex - atomPatternLength - 1;
@@ -156,14 +166,14 @@ public static class Matcher
                 {
                     if (int.TryParse(pattern[(midIndex + 1)..endIndex], out m) == false)
                         m = int.MaxValue;
-                    
+
                     int.TryParse(pattern[(atomPatternLength + 1)..midIndex], out n);
                 }
                 else
                 {
                     int.TryParse(pattern[(atomPatternLength + 1)..endIndex], out n);
                 }
-                
+
                 if (n == 0)
                     return -1;
 
@@ -305,6 +315,29 @@ public static class Matcher
                 return consumed;
         }
 
+        return -1;
+    }
+    
+    private static int MatchCaptureGroup(string pattern, string inputLine)
+    {
+        int consumed = MatchHere(pattern, inputLine);
+        
+        if (consumed == -1)
+            return -1;
+        
+        BackReferences.Add(inputLine[..consumed]);
+        
+        return consumed;
+    }
+
+    private static int MatchBackReference(string pattern, string inputLine)
+    {
+        if (pattern.Length < 2)
+            return -1;
+        
+        if (int.TryParse(pattern[1..2], out int index))
+            return MatchHere(BackReferences[index - 1], inputLine);
+        
         return -1;
     }
 
