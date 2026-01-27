@@ -74,16 +74,13 @@ public static class Matcher
 
         if (pattern.StartsWith('('))
         {
-            var endIndex = pattern.LastIndexOf(')');
+            var endIndex = Helpers.GetClosingParenthesisIndex(pattern);
             if (endIndex == -1)
                 return -1;
 
             var subPatterns = pattern[1..endIndex].Split('|');
             atomPatternLength = endIndex + 1;
-            if (subPatterns.Length > 1)
-                atomMatcher = input => MatchAlternationGroup(subPatterns, input);
-            else
-                atomMatcher = input => MatchCaptureGroup(subPatterns[0], input);
+            atomMatcher = input => MatchCaptureGroup(subPatterns, input);
         }
         else if (pattern.StartsWith('['))
         {
@@ -318,9 +315,9 @@ public static class Matcher
         return -1;
     }
     
-    private static int MatchCaptureGroup(string pattern, string inputLine)
+    private static int MatchCaptureGroup(string[] subPatterns, string inputLine)
     {
-        int consumed = MatchHere(pattern, inputLine);
+        int consumed = MatchAlternationGroup(subPatterns, inputLine);
         
         if (consumed == -1)
             return -1;
