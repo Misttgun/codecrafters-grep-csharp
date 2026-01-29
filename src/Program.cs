@@ -1,14 +1,15 @@
-using codecrafters_grep;
+using System.Text;
+using codecrafters_grep.Regex;
 
 
-if (Parser.TryParseArgs(args, out var options) == false)
+if (TryParseArgs(args, out var options) == false)
     Environment.Exit(2);
 
 var matchedAnyLine = false;
 
 while (Console.In.ReadLine() is { } line)
 {
-    var result = Matcher.MatchPattern(line, options.Pattern, options.PrintMatchesOnly);
+    var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly);
     if (string.IsNullOrEmpty(result) == false)
     {
         matchedAnyLine = true;
@@ -37,7 +38,7 @@ if (options.Paths.Count > 0)
         
         foreach (var line in File.ReadAllLines(path))
         {
-            var result = Matcher.MatchPattern(line, options.Pattern, options.PrintMatchesOnly);
+            var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly);
             if (string.IsNullOrEmpty(result) == false)
             {
                 matchedAnyLine = true;
@@ -48,3 +49,92 @@ if (options.Paths.Count > 0)
 }
 
 Environment.Exit(matchedAnyLine ? 0 : 1);
+return;
+
+static string MatchPattern(string inputLine, string pattern, bool printMatched)
+{
+    StringBuilder builder = new StringBuilder();
+
+    foreach (var (start, length) in FindMatches(inputLine, pattern))
+    {
+        if (printMatched)
+        {
+            builder.AppendLine(inputLine.Substring(start, length));
+        }
+        else
+        {
+            builder.AppendLine(inputLine);
+            break;
+        }
+    }
+
+    return builder.ToString();
+}
+
+static IEnumerable<(int Start, int Length)> FindMatches(string inputLine, string pattern)
+{
+    var engine = new RegexEngine(pattern);
+    bool anchoredToStart = pattern.StartsWith('^');
+
+    if (anchoredToStart)
+    {
+        int len = engine.MatchAt(inputLine, 0);
+        if (len != -1)
+            yield return (0, len);
+        yield break;
+    }
+
+    var i = 0;
+    while (i <= inputLine.Length)
+    {
+        int len = engine.MatchAt(inputLine, i);
+        if (len == -1)
+        {
+            i++;
+            continue;
+        }
+
+        yield return (i, len);
+        i += len > 0 ? len : 1;
+    }
+}
+    
+static bool TryParseArgs(string[] args, out Options options)
+{
+    options = default;
+        
+    // Required by the challenge (at least for now).
+    if (args.Contains("-E") == false)
+    {
+        Console.WriteLine("Expected arguments to contain '-E'");
+        return false;
+    }
+
+    var printMatchesOnly = args.Contains("-o");
+    var recursiveSearch = args.Contains("-r");
+
+    // First non-flag token is the pattern.
+    string? pattern = null;
+    List<string> paths = [];
+    foreach (var arg in args)
+    {
+        if (arg.Length > 0 && arg.StartsWith('-') == false)
+        {
+            if (pattern == null)
+                pattern = arg;
+            else
+                paths.Add(arg);
+        }
+    }
+        
+    if (string.IsNullOrEmpty(pattern))
+    {
+        Console.WriteLine("Expected a pattern argument");
+        return false;
+    }
+
+    options = new Options(pattern, paths, printMatchesOnly, recursiveSearch);
+    return true;
+}
+
+internal readonly record struct Options(string Pattern, List<string> Paths, bool PrintMatchesOnly, bool RecursiveSearch);
