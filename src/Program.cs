@@ -9,7 +9,7 @@ var matchedAnyLine = false;
 
 while (Console.In.ReadLine() is { } line)
 {
-    var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly);
+    var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly, options.ColorMatches);
     if (string.IsNullOrEmpty(result) == false)
     {
         matchedAnyLine = true;
@@ -38,7 +38,7 @@ if (options.Paths.Count > 0)
         
         foreach (var line in File.ReadAllLines(path))
         {
-            var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly);
+            var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly, options.ColorMatches);
             if (string.IsNullOrEmpty(result) == false)
             {
                 matchedAnyLine = true;
@@ -51,7 +51,7 @@ if (options.Paths.Count > 0)
 Environment.Exit(matchedAnyLine ? 0 : 1);
 return;
 
-static string MatchPattern(string inputLine, string pattern, bool printMatched)
+static string MatchPattern(string inputLine, string pattern, bool printMatched, bool colorMatches)
 {
     StringBuilder builder = new StringBuilder();
 
@@ -63,7 +63,16 @@ static string MatchPattern(string inputLine, string pattern, bool printMatched)
         }
         else
         {
-            builder.AppendLine(inputLine);
+            if (colorMatches)
+            {
+                var matchedString = inputLine.Substring(start, length);
+                var coloredMatch = $"\e[01;31m{matchedString}\e[0m";
+                builder.AppendLine(inputLine.Replace(matchedString, coloredMatch));
+            }
+            else
+            {
+                builder.AppendLine(inputLine);
+            }
             break;
         }
     }
@@ -112,6 +121,7 @@ static bool TryParseArgs(string[] args, out Options options)
 
     var printMatchesOnly = args.Contains("-o");
     var recursiveSearch = args.Contains("-r");
+    var colorMatches = args.Contains("--color=always");
 
     // First non-flag token is the pattern.
     string? pattern = null;
@@ -133,8 +143,8 @@ static bool TryParseArgs(string[] args, out Options options)
         return false;
     }
 
-    options = new Options(pattern, paths, printMatchesOnly, recursiveSearch);
+    options = new Options(pattern, paths, printMatchesOnly, recursiveSearch, colorMatches);
     return true;
 }
 
-internal readonly record struct Options(string Pattern, List<string> Paths, bool PrintMatchesOnly, bool RecursiveSearch);
+internal readonly record struct Options(string Pattern, List<string> Paths, bool PrintMatchesOnly, bool RecursiveSearch, bool ColorMatches);
