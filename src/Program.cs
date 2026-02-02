@@ -29,13 +29,13 @@ if (options.Paths.Count > 0)
     {
         paths = options.Paths;
     }
-    
+
     bool multiplePaths = paths.Count > 1;
     foreach (var path in paths)
     {
         if (Path.Exists(path) == false)
             continue;
-        
+
         foreach (var line in File.ReadAllLines(path))
         {
             var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly, options.ColorMatches);
@@ -54,27 +54,30 @@ return;
 static string MatchPattern(string inputLine, string pattern, bool printMatched, bool colorMatches)
 {
     StringBuilder builder = new StringBuilder();
+    int previousMatchEnd = 0;
 
     foreach (var (start, length) in FindMatches(inputLine, pattern))
     {
+        if (printMatched == false && colorMatches == false)
+            return builder.AppendLine(inputLine).ToString();
+
         if (printMatched)
         {
             builder.AppendLine(inputLine.Substring(start, length));
         }
-        else
+        else if (colorMatches)
         {
-            if (colorMatches)
-            {
-                var matchedString = inputLine.Substring(start, length);
-                var coloredMatch = $"\e[01;31m{matchedString}\e[0m";
-                builder.AppendLine(inputLine.Replace(matchedString, coloredMatch));
-            }
-            else
-            {
-                builder.AppendLine(inputLine);
-            }
-            break;
+            builder.Append(inputLine[previousMatchEnd..start]);
+            var coloredMatch = $"\e[01;31m{inputLine.AsSpan(start, length)}\e[0m";
+            builder.Append(coloredMatch);
+            previousMatchEnd = start + length;
         }
+    }
+
+    if (colorMatches && builder.Length > 0)
+    {
+        builder.Append(inputLine[previousMatchEnd..]);
+        builder.AppendLine();
     }
 
     return builder.ToString();
@@ -107,11 +110,11 @@ static IEnumerable<(int Start, int Length)> FindMatches(string inputLine, string
         i += len > 0 ? len : 1;
     }
 }
-    
+
 static bool TryParseArgs(string[] args, out Options options)
 {
     options = default;
-        
+
     // Required by the challenge (at least for now).
     if (args.Contains("-E") == false)
     {
@@ -136,7 +139,7 @@ static bool TryParseArgs(string[] args, out Options options)
                 paths.Add(arg);
         }
     }
-        
+
     if (string.IsNullOrEmpty(pattern))
     {
         Console.WriteLine("Expected a pattern argument");
