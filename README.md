@@ -1,38 +1,102 @@
 [![progress-banner](https://backend.codecrafters.io/progress/grep/9bebf393-2e07-4832-8cc1-85c8d472cf3a)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
-This is a starting point for C# solutions to the
+This is my C# solution to the
 ["Build Your Own grep" Challenge](https://app.codecrafters.io/courses/grep/overview).
 
-[Regular expressions](https://en.wikipedia.org/wiki/Regular_expression)
-(Regexes, for short) are patterns used to match character combinations in
-strings. [`grep`](https://en.wikipedia.org/wiki/Grep) is a CLI tool for
-searching using Regexes.
+A minimal `grep`-like tool written in C# (.NET 9) with a small custom regex engine. It can search stdin and/or files for matches, optionally print only the matched portions, and highlight matches with ANSI color.
 
-In this challenge you'll build your own implementation of `grep`. Along the way
-we'll learn about Regex syntax, how parsers/lexers work, and how regular
-expressions are evaluated.
-
-**Note**: If you're viewing this repo on GitHub, head over to
+**Note**: Head over to
 [codecrafters.io](https://codecrafters.io) to try the challenge.
 
-# Passing the first stage
+## Features
 
-The entry point for your `grep` implementation is in `src/Program.cs`. Study and
-uncomment the relevant code, and push your changes to pass the first stage:
+### CLI behavior
 
-```sh
-git commit -am "pass 1st stage" # any msg
-git push origin master
-```
+- Reads from **stdin** line-by-line and prints matching results
+- Can also search **one or more paths** passed as arguments
+- Exit codes:
+   - `0` if at least one match was found
+   - `1` if no matches were found
+   - `2` on invalid arguments
 
-Time to move on to the next stage!
+### Options (current)
 
-# Stage 2 & beyond
+- `-E` — required (constraint from the Codecrafters stages in this repo)
+- `-o` — print **only the matched substring(s)** instead of the full line
+- `-r` — recursive search:
+   - if the first provided path is a directory, searches `*.txt` files under it (recursively)
+- `--color=auto|always|never` — colorize matches (ANSI escape codes)
+   - `auto` enables color unless output is redirected
 
-Note: This section is for stages 2 and beyond.
+### Regex engine (custom)
 
-1. Ensure you have `dotnet (9.0)` installed locally
-1. Run `./your_program.sh` to run your program, which is implemented in
-   `src/Program.cs`.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+Implemented via parsing into an AST and matching with backtracking. Supported constructs include:
+
+- Literals, concatenation, alternation: `abc`, `a|b`
+- Grouping + capturing: `( ... )`
+- Backreferences: `\1`, `\2`, ...
+- Character classes: `[abc]`, negated classes `[^abc]`
+- Wildcard: `.`
+- Anchors: `^` and `$`
+- Quantifiers: `*`, `+`, `?`, and `{n}`, `{n,}`, `{n,m}`
+- Shorthands:
+   - `\w` (ASCII word chars + `_`)
+   - `\d` (digits)
+
+## Requirements
+
+- .NET SDK 9.0 (or compatible runtime)
+
+## Usage Examples
+
+> Note: this implementation expects `-E` to be present.
+
+- Read from stdin:
+   - `cat README.md | ./your_program.sh -E "grep"`
+- Search in a file:
+   - `./your_program.sh -E "hello" src/Program.cs`
+- Print only matched portions:
+   - `./your_program.sh -E -o "\d+" numbers.txt`
+- Highlight matches:
+   - `./your_program.sh -E --color=always "warn" app.log`
+- Recursive search (directory -> `*.txt` only):
+   - `./your_program.sh -E -r "pattern" ./some-folder`
+
+## Notes and Limitations
+
+- This is a **challenge implementation**, not a drop-in replacement for GNU/BSD/POSIX `grep`.
+- “POSIX grep” refers to a specific standardized tool/behavior; this repo is better described as **`grep`-like**.
+- Recursive mode currently enumerates `*.txt` files only, and only when the first provided path is a directory.
+- If both stdin and paths are provided, stdin is processed first and then files are processed.
+
+## Project Structure
+
+- `src/Program.cs`
+   - CLI parsing (`-E`, `-o`, `-r`, `--color=...`)
+   - reads stdin + file(s), runs matching, prints results, sets exit code
+- `src/Regex/RegexEngine.cs`
+   - compiles a pattern by parsing it into an AST and exposes `MatchAt(...)`
+- `src/Regex/Parser.cs`
+   - `RegexParser` that parses the pattern string into the AST
+- `src/Regex/Ast.cs`
+   - AST node definitions (sequence, alternation, groups, literals, quantifiers, anchors, etc.)
+- `src/Regex/Matcher.cs`
+   - backtracking matcher that walks the AST against input and supports captures/backrefs
+- `src/Regex/RuntimeState.cs`
+   - match state (current input position + capture dictionary) with snapshot/restore for backtracking
+- `your_program.sh`
+   - local build+run wrapper used by the Codecrafters workflow
+
+## Development
+
+- Target framework: `net9.0`
+- Language version: C# 13
+- Build:
+   - `dotnet build`
+- Run:
+   - `dotnet run -- -E "pattern" <path>`
+   - or `./your_program.sh -E "pattern" <path>`
+
+## License
+
+MIT (or the license specified by the repository).

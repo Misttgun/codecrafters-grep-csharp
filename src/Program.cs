@@ -9,7 +9,7 @@ var matchedAnyLine = false;
 
 while (Console.In.ReadLine() is { } line)
 {
-    var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly, options.ColorMatches);
+    var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly, options.UseColor);
     if (string.IsNullOrEmpty(result) == false)
     {
         matchedAnyLine = true;
@@ -38,7 +38,7 @@ if (options.Paths.Count > 0)
 
         foreach (var line in File.ReadAllLines(path))
         {
-            var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly, options.ColorMatches);
+            var result = MatchPattern(line, options.Pattern, options.PrintMatchesOnly, options.UseColor);
             if (string.IsNullOrEmpty(result) == false)
             {
                 matchedAnyLine = true;
@@ -51,21 +51,21 @@ if (options.Paths.Count > 0)
 Environment.Exit(matchedAnyLine ? 0 : 1);
 return;
 
-static string MatchPattern(string inputLine, string pattern, bool printMatched, bool colorMatches)
+static string MatchPattern(string inputLine, string pattern, bool printMatched, bool useColor)
 {
     StringBuilder builder = new StringBuilder();
     int previousMatchEnd = 0;
 
     foreach (var (start, length) in FindMatches(inputLine, pattern))
     {
-        if (printMatched == false && colorMatches == false)
+        if (printMatched == false && useColor == false)
             return builder.AppendLine(inputLine).ToString();
 
         if (printMatched)
         {
             builder.AppendLine(inputLine.Substring(start, length));
         }
-        else if (colorMatches)
+        else if (useColor)
         {
             builder.Append(inputLine[previousMatchEnd..start]);
             var coloredMatch = $"\e[01;31m{inputLine.AsSpan(start, length)}\e[0m";
@@ -74,7 +74,7 @@ static string MatchPattern(string inputLine, string pattern, bool printMatched, 
         }
     }
 
-    if (colorMatches && builder.Length > 0)
+    if (useColor && builder.Length > 0)
     {
         builder.Append(inputLine[previousMatchEnd..]);
         builder.AppendLine();
@@ -97,7 +97,7 @@ static IEnumerable<(int Start, int Length)> FindMatches(string inputLine, string
     }
 
     var i = 0;
-    while (i <= inputLine.Length)
+    while (i < inputLine.Length)
     {
         int len = engine.MatchAt(inputLine, i);
         if (len == -1)
@@ -124,7 +124,17 @@ static bool TryParseArgs(string[] args, out Options options)
 
     var printMatchesOnly = args.Contains("-o");
     var recursiveSearch = args.Contains("-r");
-    var colorMatches = args.Contains("--color=always");
+    
+    var colorMode = ColorMode.Never;
+    foreach (var arg in args)
+    {
+        if (arg.StartsWith("--color=", StringComparison.Ordinal))
+        {
+            var value = arg["--color=".Length..];
+            if (Enum.TryParse<ColorMode>(value, ignoreCase: true, out var parsed))
+                colorMode = parsed;
+        }
+    }
 
     // First non-flag token is the pattern.
     string? pattern = null;
@@ -145,9 +155,24 @@ static bool TryParseArgs(string[] args, out Options options)
         Console.WriteLine("Expected a pattern argument");
         return false;
     }
+    
+    bool useColor = colorMode switch
+    {
+        ColorMode.Always => true,
+        ColorMode.Never => false,
+        ColorMode.Auto => !Console.IsOutputRedirected,
+        _ => false
+    };
 
-    options = new Options(pattern, paths, printMatchesOnly, recursiveSearch, colorMatches);
+    options = new Options(pattern, paths, printMatchesOnly, recursiveSearch, useColor);
     return true;
 }
 
-internal readonly record struct Options(string Pattern, List<string> Paths, bool PrintMatchesOnly, bool RecursiveSearch, bool ColorMatches);
+internal enum ColorMode
+{
+    Auto,
+    Always,
+    Never
+}
+
+internal readonly record struct Options(string Pattern, List<string> Paths, bool PrintMatchesOnly, bool RecursiveSearch, bool UseColor);
